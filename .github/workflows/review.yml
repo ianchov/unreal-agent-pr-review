@@ -19,6 +19,10 @@ on:
         description: Time limit for all review rounds.
         type: number
         default: 40
+      diff-exclude:
+        description: Extra paths to leave out of the diff, one git pathspec per line.
+        type: string
+        default: ""
     secrets:
       ANTHROPIC_API_KEY:
         required: true
@@ -40,3 +44,4 @@ jobs:
           model: ${{ inputs.model }}
           max-review-rounds: ${{ inputs.max-review-rounds }}
           review-timeout-minutes: ${{ inputs.review-timeout-minutes }}
+          diff-exclude: ${{ inputs.diff-exclude }}
