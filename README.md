@@ -2,7 +2,8 @@
 
 Workflows that review pull requests with [Unreal Agent](https://github.com/unreallabsai/unreal-agent)
 and post the review as a PR comment. The review logic, security model, and defaults live in the action
-[ianchov/unreal-agent-pr-review-action](https://github.com/ianchov/unreal-agent-pr-review-action).
+[ianchov/unreal-agent-pr-review-action](https://github.com/ianchov/unreal-agent-pr-review-action),
+also on [GitHub Marketplace](https://github.com/marketplace/actions/unreal-agent-pr-review).
 
 This repository gives three ways to add it:
 
