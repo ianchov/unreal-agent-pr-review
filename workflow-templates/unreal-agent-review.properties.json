@@ -1,0 +1,6 @@
+{
+  "name": "Unreal Agent PR review",
+  "description": "Review pull requests with Unreal Agent in a nono sandbox and post the review as a PR comment.",
+  "iconName": "octicon eye",
+  "categories": ["Automation"]
+}

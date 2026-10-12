@@ -1,0 +1,42 @@
+name: Unreal Agent PR review (reusable)
+# Called from a pull_request workflow. The review logic lives in ianchov/unreal-agent-pr-review-action.
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: Runner labels as JSON, for example '"ubuntu-24.04"' or '["self-hosted","linux"]'.
+        type: string
+        default: '"ubuntu-24.04"'
+      model:
+        description: Anthropic model for the agent and the reviewer check.
+        type: string
+        default: claude-sonnet-5-5
+      max-review-rounds:
+        description: Most agent and reviewer-check rounds per run.
+        type: number
+        default: 3
+      review-timeout-minutes:
+        description: Time limit for all review rounds.
+        type: number
+        default: 40
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  review:
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: unreal-agent-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: ianchov/unreal-agent-pr-review-action@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: ${{ inputs.model }}
+          max-review-rounds: ${{ inputs.max-review-rounds }}
+          review-timeout-minutes: ${{ inputs.review-timeout-minutes }}
