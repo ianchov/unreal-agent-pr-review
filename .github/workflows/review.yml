@@ -29,6 +29,12 @@ on:
 
 jobs:
   review:
+    # Skip before a runner starts: drafts still change, and fork and Dependabot PRs get no secrets.
+    # The action skips the same PRs for workflows that use it directly.
+    if: >-
+      github.event.pull_request.draft == false
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 60
     permissions:
