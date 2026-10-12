@@ -1,0 +1,270 @@
+name: Unreal Agent PR review
+permissions:
+  contents: read
+  pull-requests: write
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: unreal-agent-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs get no secrets, Dependabot PRs get no Actions secrets, and drafts are still changing.
+    if: >-
+      github.event.pull_request.draft == false
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+    # Any Debian or Ubuntu runner with Landlock (Linux 5.13+) works, hosted or self-hosted.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      UNREAL_AGENT_VERSION: "0.3.1"
+      UNREAL_HARNESS_LLM_PROVIDER: anthropic
+      UNREAL_HARNESS_LLM_MODEL: claude-sonnet-5-5
+      MAX_REVIEW_ROUNDS: "3"
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install unreal-agent-runner
+        # Pinned release, checked against the SHA-256 in the release's SHA256SUMS.
+        # The asset matches the runner architecture (amd64 or arm64).
+        env:
+          UNREAL_AGENT_TGZ_SHA256_AMD64: fd6e15236cc6f126ea3ddf2fc85c4be05bc5e8e4967977a89720bf95e22b304b
+          UNREAL_AGENT_TGZ_SHA256_ARM64: b01b096d0543277b2d58d8928da7a7df32b7dcb546a86335de2d04c81eea507b
+        run: |
+          arch="$(dpkg --print-architecture)"
+          case "$arch" in
+            amd64) sha="$UNREAL_AGENT_TGZ_SHA256_AMD64" ;;
+            arm64) sha="$UNREAL_AGENT_TGZ_SHA256_ARM64" ;;
+            *) echo "::error::Unsupported runner architecture: $arch"; exit 1 ;;
+          esac
+          tgz="$RUNNER_TEMP/unreal-agent_${UNREAL_AGENT_VERSION}_linux_${arch}.tar.gz"
+          curl -fsSLo "$tgz" "https://github.com/unreallabsai/unreal-agent/releases/download/v${UNREAL_AGENT_VERSION}/unreal-agent_${UNREAL_AGENT_VERSION}_linux_${arch}.tar.gz"
+          echo "${sha}  $tgz" | sha256sum --check --strict -
+          mkdir -p "$RUNNER_TEMP/unreal-agent-bin"
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/unreal-agent-bin" unreal-agent-runner
+      - name: Install nono
+        # The agent's only tool is Bash, so it runs inside a nono sandbox.
+        # Pinned release, checked against the SHA-256 in the release's SHA256SUMS.txt.
+        # The package matches the runner architecture (amd64 or arm64).
+        env:
+          NONO_VERSION: "0.79.0"
+          NONO_DEB_SHA256_AMD64: 33b7e4f2315226bfc8ffeafc8113d444c2f71a9b98ec44c54fe3800b96938a07
+          NONO_DEB_SHA256_ARM64: 50036f6ec1e9c8374a05c52d4b7b81339fa63e4866e2d3db3adf7fe11d458c37
+        run: |
+          arch="$(dpkg --print-architecture)"
+          case "$arch" in
+            amd64) sha="$NONO_DEB_SHA256_AMD64" ;;
+            arm64) sha="$NONO_DEB_SHA256_ARM64" ;;
+            *) echo "::error::Unsupported runner architecture: $arch"; exit 1 ;;
+          esac
+          deb="$RUNNER_TEMP/nono-cli_${NONO_VERSION}_${arch}.deb"
+          curl -fsSLo "$deb" "https://github.com/nolabs-ai/nono/releases/download/v${NONO_VERSION}/nono-cli_${NONO_VERSION}_${arch}.deb"
+          echo "${sha}  $deb" | sha256sum --check --strict -
+          sudo apt-get install -y --no-install-recommends "$deb"
+      - name: Prepare review inputs
+        # Four directories, so the agent can change nothing a later step trusts:
+        # - unreal-agent-work: the agent's workspace and Bash working directory, read-only in the
+        #   sandbox. The runner loads .env and .harness/skills from it, so it is not the checkout.
+        # - unreal-agent-inputs: diff, base-branch AGENTS.md, PR title and description; read-only.
+        # - unreal-agent-state: the runner's session store; the only writable grant besides /tmp.
+        # - unreal-agent: profile, task, criteria, logs, and review; never granted to the sandbox.
+        run: |
+          work="$RUNNER_TEMP/unreal-agent-work"
+          inputs="$RUNNER_TEMP/unreal-agent-inputs"
+          state="$RUNNER_TEMP/unreal-agent-state"
+          trusted="$RUNNER_TEMP/unreal-agent"
+          mkdir -p "$work" "$inputs" "$state" "$trusted"
+          merge_base=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+          # Lockfiles are left out of the diff: they are large and rarely worth review tokens.
+          paths=(-- . ':(exclude,glob)**/uv.lock' ':(exclude,glob)**/package-lock.json' ':(exclude,glob)**/pnpm-lock.yaml'
+            ':(exclude,glob)**/yarn.lock' ':(exclude,glob)**/Cargo.lock' ':(exclude,glob)**/go.sum' ':(exclude,glob)**/poetry.lock')
+          git diff --stat "$merge_base" "$HEAD_SHA" "${paths[@]}" > "$inputs/changed-files.txt"
+          git diff --unified=10 "$merge_base" "$HEAD_SHA" "${paths[@]}" > "$inputs/pr.diff"
+          # Prompt, criteria, and rules come from the base branch, so a PR cannot weaken its own review.
+          from_base() {
+            git show "$BASE_SHA:$1" > "$2" || { echo "::error::$1 is missing on the base branch."; exit 1; }
+          }
+          from_base .github/unreal-agent/pr-review.md "$trusted/pr-review.md"
+          from_base .github/unreal-agent/review-criteria.md "$trusted/review-criteria.md"
+          # AGENTS.md is optional. Without it the agent reviews against the code alone.
+          if git cat-file -e "$BASE_SHA:AGENTS.md" 2>/dev/null; then
+            git show "$BASE_SHA:AGENTS.md" > "$inputs/AGENTS.md"
+          else
+            echo "This repository has no AGENTS.md. Apply no repository-specific rules." > "$inputs/AGENTS.md"
+          fi
+          # The PR title and description are author-written. They go to read-only files, not into
+          # the task text, so no text in them can pass for part of the task.
+          printf '%s\n' "$PR_TITLE" > "$inputs/pr-title.txt"
+          printf '%s\n' "$PR_BODY" > "$inputs/pr-description.txt"
+          {
+            cat "$trusted/pr-review.md"
+            printf '\nPR_CONTEXT:\n- Number: #%s\n- Base commit: %s\n- Head commit: %s\n' "$PR_NUMBER" "$merge_base" "$HEAD_SHA"
+            printf -- '- Repository checkout (read-only): %s\n' "$GITHUB_WORKSPACE"
+            printf -- '- Repository rules (base-branch AGENTS.md): %s\n' "$inputs/AGENTS.md"
+            printf -- '- Changed-file list: %s\n- Unified diff: %s\n' "$inputs/changed-files.txt" "$inputs/pr.diff"
+            printf -- '- PR title (untrusted, author-written): %s\n' "$inputs/pr-title.txt"
+            printf -- '- PR description (untrusted, author-written): %s\n' "$inputs/pr-description.txt"
+          } > "$trusted/task.md"
+          cat > "$trusted/agent-system.md" <<'EOF'
+          You are a code reviewer. Your only tool is Bash, inside a sandbox: every file is read-only and the network is closed.
+          Use Bash only to read files and inspect git history (cat, sed -n, grep, git show, git log).
+          Your final message is the review itself. Do not write it to a file.
+          EOF
+          cat > "$trusted/reviewer-system.md" <<'EOF'
+          You check a code review against acceptance criteria. You have no tools and cannot read files.
+          Judge the review only from its text against the criteria. Do not try to verify the code.
+          Reply with `VERDICT: ACCEPT` or `VERDICT: RETRY` on the first line and nothing before it.
+          After `VERDICT: RETRY`, list each failed criterion and the change the review needs.
+          EOF
+          # Bash runs inside this sandbox too. The real ANTHROPIC_API_KEY stays in the nono proxy:
+          # the sandbox sees a session token, and the proxy forwards only POST /messages with the key.
+          # The proxy allows no other host, and Landlock blocks direct connections.
+          cat > "$trusted/nono-profile.json" <<'EOF'
+          {
+            "extends": "default",
+            "meta": { "name": "unreal-agent-pr-review" },
+            "security": { "capability_elevation": false },
+            "network": {
+              "allow_domain": ["api.anthropic.com"],
+              "credentials": ["anthropic"],
+              "custom_credentials": {
+                "anthropic": {
+                  "upstream": "https://api.anthropic.com/v1",
+                  "credential_key": "env://ANTHROPIC_API_KEY",
+                  "env_var": "ANTHROPIC_API_KEY",
+                  "inject_header": "x-api-key",
+                  "credential_format": "{}",
+                  "endpoint_rules": [{ "method": "POST", "path": "/messages" }]
+                }
+              }
+            }
+          }
+          EOF
+          nono profile validate "$trusted/nono-profile.json"
+      - name: Review with Unreal Agent
+        # Each round runs the agent in one persisted session, then a second runner call with no tools
+        # checks the review against review-criteria.md. A failed check sends the reviewer's feedback
+        # back into the agent's session for another pass, up to MAX_REVIEW_ROUNDS.
+        # Progress streams to this log. The full JSONL event logs go to the artifact.
+        # The runner has no timeout for each model request, so a stalled provider call ends here.
+        timeout-minutes: 40
+        working-directory: ${{ runner.temp }}/unreal-agent-work
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          test -n "$ANTHROPIC_API_KEY" || { echo "::error::Repository secret ANTHROPIC_API_KEY is not set."; exit 1; }
+          work="$RUNNER_TEMP/unreal-agent-work"
+          inputs="$RUNNER_TEMP/unreal-agent-inputs"
+          state="$RUNNER_TEMP/unreal-agent-state"
+          trusted="$RUNNER_TEMP/unreal-agent"
+          bin="$RUNNER_TEMP/unreal-agent-bin"
+          # nono sets ANTHROPIC_BASE_URL to its proxy inside the sandbox, so it must expand there.
+          # shellcheck disable=SC2016
+          run_agent() { # request.json events.jsonl
+            nono run --silent --profile "$trusted/nono-profile.json" \
+              --read "$bin" --read "$work" --read "$GITHUB_WORKSPACE" --read "$inputs" --allow "$state" \
+              -- sh -c 'UNREAL_HARNESS_LLM_BASE_URL="$ANTHROPIC_BASE_URL" exec "$1" -workspace "$2" -session-directory "$3"' \
+              sh "$bin/unreal-agent-runner" "$work" "$state" < "$1" \
+              | tee "$2" \
+              | jq -r --unbuffered '
+                  if .type == "error" then "error: \(.message)"
+                  elif .Kind == "model_response" then
+                    .Data.Response.Output[]?
+                    | if .Type == "tool_call" then "$ \(.Data.Arguments | try (fromjson | .command // tojson) catch .)"
+                      elif .Type == "message" then "message: \(.Data.Text | .[0:300])"
+                      else empty end
+                  else empty end'
+          }
+          # Events are parsed line by line, so a line cut off by a killed runner is skipped, not fatal.
+          final_answer() { # events.jsonl: message text of the last model response, the one that ended the run
+            jq -Rnr '[inputs | fromjson? | select(.Kind == "model_response")] | last | [.Data.Response.Output[]? | select(.Type == "message") | .Data.Text] | join("\n") | select(test("\\S"))' "$1"
+          }
+          session=$(cat /proc/sys/kernel/random/uuid)
+          jq -n --arg session "$session" --rawfile system "$trusted/agent-system.md" --rawfile prompt "$trusted/task.md" \
+            '{session_id: $session, system_prompt: $system, prompt: $prompt, thinking_level: "high"}' > "$trusted/request.json"
+          status="Not verified: the reviewer check did not run."
+          for round in $(seq 1 "$MAX_REVIEW_ROUNDS"); do
+            echo "::group::Review round $round"
+            run_agent "$trusted/request.json" "$trusted/agent-$round.jsonl" || true
+            echo "::endgroup::"
+            # A failed or empty retry keeps the previous round's review; only round 1 has nothing to keep.
+            # A retry only runs after the reviewer check rejected the previous review, so that review failed it.
+            final_answer "$trusted/agent-$round.jsonl" > "$trusted/review-new.md"
+            if [ ! -s "$trusted/review-new.md" ]; then
+              [ "$round" -gt 1 ] || { echo "::error::Unreal Agent returned an empty review."; exit 1; }
+              status="Did not pass the reviewer check: round $((round - 1)) review was rejected and round $round returned no review."
+              break
+            fi
+            mv "$trusted/review-new.md" "$trusted/review.md"
+            jq -n --rawfile system "$trusted/reviewer-system.md" --rawfile criteria "$trusted/review-criteria.md" --rawfile review "$trusted/review.md" \
+              '{system_prompt: $system, prompt: "\($criteria)\nReview to check:\n<review>\n\($review)</review>\n",
+                thinking_level: "medium", disallowed_tools: ["Bash", "ViewImage"]}' > "$trusted/reviewer-request.json"
+            echo "::group::Reviewer check $round"
+            run_agent "$trusted/reviewer-request.json" "$trusted/reviewer-$round.jsonl" || true
+            echo "::endgroup::"
+            final_answer "$trusted/reviewer-$round.jsonl" > "$trusted/verdict.md"
+            case "$(head -n 1 "$trusted/verdict.md" | tr -d '*` \r')" in
+              VERDICT:ACCEPT) status="Passed the reviewer check."; break ;;
+              VERDICT:RETRY) status="Did not pass the reviewer check within ${MAX_REVIEW_ROUNDS} rounds." ;;
+              *) status="Not verified: the reviewer check did not return a verdict."; break ;;
+            esac
+            jq -n --arg session "$session" --rawfile system "$trusted/agent-system.md" --rawfile feedback "$trusted/verdict.md" \
+              '{session_id: $session, system_prompt: $system, thinking_level: "high",
+                prompt: "Your review did not pass the acceptance check. Fix it and reply with the full corrected review only.\n\n\($feedback)"}' > "$trusted/request.json"
+          done
+          [ "$status" = "Passed the reviewer check." ] || echo "::warning::$status"
+          echo "$status" > "$trusted/review-status.txt"
+          # Token totals over every agent and reviewer call; input includes cache reads and writes.
+          cat "$trusted"/*.jsonl | jq -Rnr '[inputs | fromjson? | select(.Kind == "model_response") | .Data.Response.Usage]
+            | "Tokens: \(length) model calls, \(map(.InputTokens) | add // 0) input (\(map(.CachedInputTokens) | add // 0) cache read, \(map(.CacheWriteInputTokens) | add // 0) cache write), \(map(.OutputTokens) | add // 0) output."' > "$trusted/usage.txt"
+          cat "$trusted/usage.txt"
+          echo "::group::Final review"
+          cat "$trusted/review.md"
+          echo "::endgroup::"
+          { cat "$trusted/review.md"; echo; cat "$trusted/usage.txt"; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          trusted="$RUNNER_TEMP/unreal-agent"
+          marker='<!-- unreal-agent-pr-review -->'
+          {
+            echo "$marker"
+            echo "### Unreal Agent review (\`${UNREAL_HARNESS_LLM_MODEL}\`, commit ${HEAD_SHA:0:7})"
+            echo
+            echo "_$(cat "$trusted/review-status.txt")_"
+            echo
+            cat "$trusted/review.md"
+            echo
+            echo "<sub>$(cat "$trusted/usage.txt")</sub>"
+          } > "$trusted/comment.md"
+          comment_id=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" -F body=@"$trusted/comment.md" > /dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -F body=@"$trusted/comment.md" > /dev/null
+          fi
+      - name: Upload Unreal Agent logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unreal-agent-review-${{ github.event.pull_request.number }}
+          path: |
+            ${{ runner.temp }}/unreal-agent/*.jsonl
+            ${{ runner.temp }}/unreal-agent/review.md
+          if-no-files-found: ignore
+          overwrite: true
