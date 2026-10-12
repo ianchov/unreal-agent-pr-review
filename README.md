@@ -22,8 +22,9 @@ All three ways need the repository secret `ANTHROPIC_API_KEY`
 
 1. Click **Use this template** → **Create a new repository**.
 2. Add the secret `ANTHROPIC_API_KEY` to the new repository.
-3. Delete the `workflow-templates` directory and `.github/workflows/review.yml`. Your copy uses
-   the reusable workflow from this repository, not its own copy.
+3. Delete the `workflow-templates` directory, `.github/workflows/review.yml`, and
+   `.github/workflows/install-check.yml`. Your copy uses the reusable workflow from this repository,
+   not its own copy. The install check is for this repository only and is skipped in copies.
 4. Open a pull request from a branch in the same repository.
 
 ## Reusable workflow
