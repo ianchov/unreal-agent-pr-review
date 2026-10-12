@@ -25,7 +25,7 @@ jobs:
       - id: action
         name: Read action version from review.yml
         run: |
-          refs=$(grep -oE 'ianchov/unreal-agent-pr-review-action@[^[:space:]]+' .github/workflows/review.yml)
+          refs=$(grep -oE 'ianchov/unreal-agent-pr-review-action@[^[:space:]]+' .github/workflows/review.yml || true)
           [ "$(printf '%s\n' "$refs" | grep -c .)" -eq 1 ] || { echo "::error::Expected one action reference in review.yml, got: $refs"; exit 1; }
           echo "ref=${refs#*@}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
