@@ -23,6 +23,10 @@ on:
         description: Extra paths to leave out of the diff, one git pathspec per line.
         type: string
         default: ""
+      adversarial-review:
+        description: Also run the adversarial review in a second job and post it as a second comment.
+        type: boolean
+        default: true
     secrets:
       ANTHROPIC_API_KEY:
         required: true
@@ -35,13 +39,19 @@ jobs:
       github.event.pull_request.draft == false
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.event.pull_request.user.login != 'dependabot[bot]'
+    # One job per review mode: each mode posts its own comment, and a failed mode does not cancel the other.
+    name: ${{ matrix.mode == 'adversarial' && 'adversarial review' || 'review' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: ${{ fromJSON(inputs.adversarial-review && '["standard","adversarial"]' || '["standard"]') }}
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: write
     concurrency:
-      group: unreal-agent-review-${{ github.event.pull_request.number }}
+      group: unreal-agent-review-${{ github.event.pull_request.number }}-${{ matrix.mode }}
       cancel-in-progress: true
     steps:
       - uses: ianchov/unreal-agent-pr-review-action@v1
@@ -51,3 +61,4 @@ jobs:
           max-review-rounds: ${{ inputs.max-review-rounds }}
           review-timeout-minutes: ${{ inputs.review-timeout-minutes }}
           diff-exclude: ${{ inputs.diff-exclude }}
+          review-mode: ${{ matrix.mode }}
