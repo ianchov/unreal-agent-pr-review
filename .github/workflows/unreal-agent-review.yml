@@ -10,5 +10,7 @@ permissions:
 jobs:
   review:
     uses: ./.github/workflows/review.yml
+    with:
+      adversarial-review: false
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
