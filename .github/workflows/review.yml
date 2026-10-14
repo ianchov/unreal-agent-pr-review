@@ -54,7 +54,7 @@ jobs:
       group: unreal-agent-review-${{ github.event.pull_request.number }}-${{ matrix.mode }}
       cancel-in-progress: true
     steps:
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - uses: ianchov/unreal-agent-pr-review-action@feature/adversarial-review
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           model: ${{ inputs.model }}
