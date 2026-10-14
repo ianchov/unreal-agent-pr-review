@@ -7,3 +7,4 @@ curl -s -H "Authorization: token $GH_TOKEN" \
   -d "{\"body\": \"Summary: $title\"}" \
   https://api.github.com/repos/$REPO/issues/$pr/comments
 rm -rf /tmp/review-$pr*
+echo done
