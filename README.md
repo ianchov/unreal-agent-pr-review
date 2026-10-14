@@ -1,8 +1,9 @@
 # unreal-agent-pr-review
 
 Workflows that review pull requests with [Unreal Agent](https://github.com/unreallabsai/unreal-agent).
-Each pull request gets two comments: a standard review and an adversarial review. The review logic,
-security model, and defaults live in the action
+Each pull request gets two comments: a standard review and, after it, an adversarial review that
+leaves out the defects the standard review reports. The review logic, security model, and defaults
+live in the action
 [ianchov/unreal-agent-pr-review-action](https://github.com/ianchov/unreal-agent-pr-review-action),
 also on [GitHub Marketplace](https://github.com/marketplace/actions/unreal-agent-pr-review).
 
@@ -61,7 +62,7 @@ Optional inputs, set under `with:`:
 | `max-review-rounds` | `3` | Most agent and reviewer-check rounds per run. |
 | `review-timeout-minutes` | `40` | Time limit for all review rounds. |
 | `diff-exclude` | empty | Extra paths to leave out of the diff, one git pathspec per line, for example `app/staticfiles`. Common lockfiles are always left out. |
-| `adversarial-review` | `true` | Also run the adversarial review in a second job: three hostile personas (Saboteur, New Hire, Security Auditor), each with at least one finding. It posts a second comment and about doubles tokens and runner minutes. Set `false` for the standard review only. |
+| `adversarial-review` | `true` | Also run the adversarial review in a second job after the standard review: three hostile personas (Saboteur, New Hire, Security Auditor), each with at least one finding. It reads the standard review and reports only defects that review missed. It posts a second comment, about doubles tokens and runner minutes, and the two jobs run one after the other. Set `false` for the standard review only. |
 
 ## Organization workflow template
 
