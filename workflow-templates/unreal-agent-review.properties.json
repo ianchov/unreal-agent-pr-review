@@ -1,6 +1,6 @@
 {
   "name": "Unreal Agent PR review",
-  "description": "Review pull requests with Unreal Agent in a nono sandbox and post the review as a PR comment.",
+  "description": "Review pull requests with Unreal Agent in a nono sandbox and post a standard and an adversarial review as PR comments.",
   "iconName": "octicon eye",
   "categories": ["Automation"]
 }
