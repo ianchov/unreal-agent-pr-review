@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   review:
-    uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
+    uses: ./.github/workflows/review.yml
+    with:
+      adversarial-review: false
     # All three keys, so the variable UNREAL_AGENT_PROVIDER can switch the provider without an edit here.
     # Only the chosen provider's key is used; a secret that does not exist is passed as empty.
     secrets:
