@@ -82,7 +82,7 @@ jobs:
       # names the newest commit right after a push. The adversarial job replaces the mark later.
       - if: inputs.adversarial-review
         continue-on-error: true
-        uses: ianchov/unreal-agent-pr-review-action@v1
+        uses: ianchov/unreal-agent-pr-review-action@feature/waiting-mark
         with:
           provider: ${{ env.REVIEW_PROVIDER }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -93,7 +93,7 @@ jobs:
           review-mode: adversarial
           waiting-for: the standard review
       - id: review
-        uses: ianchov/unreal-agent-pr-review-action@v1
+        uses: ianchov/unreal-agent-pr-review-action@feature/waiting-mark
         with:
           provider: ${{ env.REVIEW_PROVIDER }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -134,7 +134,7 @@ jobs:
         with:
           name: unreal-agent-review-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/standard-review
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - uses: ianchov/unreal-agent-pr-review-action@feature/waiting-mark
         with:
           provider: ${{ env.REVIEW_PROVIDER }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

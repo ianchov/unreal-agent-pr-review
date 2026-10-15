@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   review:
-    uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
+    uses: ./.github/workflows/review.yml
+    with:
+      diff-exclude: .github/workflows
     # The three provider keys by name, not `secrets: inherit`, so no other secret leaves this
     # repository. A key that does not exist arrives empty. The review uses the provider that
     # UNREAL_AGENT_PROVIDER or the provider input names, or else the first key that exists.
