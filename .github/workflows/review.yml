@@ -8,7 +8,7 @@ on:
         type: string
         default: '"ubuntu-24.04"'
       provider:
-        description: 'Model provider: "anthropic", "openai", or "openrouter". Pass the matching secret.'
+        description: 'Model provider: "anthropic", "openai", or "openrouter". The repository or organization variable UNREAL_AGENT_PROVIDER, when set, takes precedence. Pass the matching secret.'
         type: string
         default: anthropic
       model:
@@ -67,7 +67,7 @@ jobs:
     steps:
       - uses: ianchov/unreal-agent-pr-review-action@v1
         with:
-          provider: ${{ inputs.provider }}
+          provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
@@ -102,7 +102,7 @@ jobs:
           path: ${{ runner.temp }}/standard-review
       - uses: ianchov/unreal-agent-pr-review-action@v1
         with:
-          provider: ${{ inputs.provider }}
+          provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
