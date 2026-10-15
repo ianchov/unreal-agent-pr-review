@@ -69,7 +69,7 @@ jobs:
       highest-severity: ${{ steps.review.outputs.highest-severity }}
     steps:
       - id: review
-        uses: ianchov/unreal-agent-pr-review-action@v1
+        uses: ianchov/unreal-agent-pr-review-action@feature/collapse-outdated
         with:
           provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -110,7 +110,7 @@ jobs:
         with:
           name: unreal-agent-review-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/standard-review
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - uses: ianchov/unreal-agent-pr-review-action@feature/collapse-outdated
         with:
           provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
