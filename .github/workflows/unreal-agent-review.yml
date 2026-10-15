@@ -9,6 +9,9 @@ permissions:
 
 jobs:
   review:
-    uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
+    uses: ./.github/workflows/review.yml
+    with:
+      provider: openrouter
+      adversarial-review: false
     secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

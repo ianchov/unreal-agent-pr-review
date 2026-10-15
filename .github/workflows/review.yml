@@ -65,7 +65,7 @@ jobs:
       group: unreal-agent-review-${{ github.event.pull_request.number }}-standard
       cancel-in-progress: true
     steps:
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - uses: ianchov/unreal-agent-pr-review-action@feature/review-cost
         with:
           provider: ${{ inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -100,7 +100,7 @@ jobs:
         with:
           name: unreal-agent-review-${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/standard-review
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - uses: ianchov/unreal-agent-pr-review-action@feature/review-cost
         with:
           provider: ${{ inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
