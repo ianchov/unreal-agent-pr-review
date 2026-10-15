@@ -8,9 +8,9 @@ on:
         type: string
         default: '"ubuntu-24.04"'
       provider:
-        description: 'Model provider: "anthropic", "openai", or "openrouter". The repository or organization variable UNREAL_AGENT_PROVIDER, when set, takes precedence. Pass the matching secret.'
+        description: 'Model provider: "anthropic", "openai", or "openrouter". The repository or organization variable UNREAL_AGENT_PROVIDER, when set, takes precedence. When neither is set, the first passed key decides: anthropic, then openrouter, then openai.'
         type: string
-        default: anthropic
+        default: ""
       model:
         description: Model for the agent and the reviewer check. The repository or organization variable UNREAL_AGENT_MODEL, when set, takes precedence. Defaults to claude-sonnet-5-5 for anthropic and openai/gpt-6-sol for openrouter; required for openai.
         type: string
@@ -46,6 +46,16 @@ on:
         description: Key for provider openrouter.
         required: false
 
+# The provider both jobs use: the variable, then the input, then the first key the caller passed, in
+# a fixed order. A caller that passes all three keys by name only needs to add a key as a secret.
+env:
+  REVIEW_PROVIDER: >-
+    ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider
+    || (secrets.ANTHROPIC_API_KEY != '' && 'anthropic')
+    || (secrets.OPENROUTER_API_KEY != '' && 'openrouter')
+    || (secrets.OPENAI_API_KEY != '' && 'openai')
+    || 'anthropic' }}
+
 jobs:
   review:
     # Skip before a runner starts: drafts still change, fork and Dependabot PRs get no secrets, and
@@ -71,7 +81,7 @@ jobs:
       - id: review
         uses: ianchov/unreal-agent-pr-review-action@v1
         with:
-          provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
+          provider: ${{ env.REVIEW_PROVIDER }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
@@ -112,7 +122,7 @@ jobs:
           path: ${{ runner.temp }}/standard-review
       - uses: ianchov/unreal-agent-pr-review-action@v1
         with:
-          provider: ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider }}
+          provider: ${{ env.REVIEW_PROVIDER }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
