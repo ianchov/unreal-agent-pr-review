@@ -28,7 +28,7 @@ on:
         type: string
         default: ""
       adversarial-review:
-        description: Also run the adversarial review after the standard review says "Ready to merge", and post it as a second comment. It leaves out the defects the standard review reports.
+        description: Also run the adversarial review after the standard review when it has no P0 or P1 finding, and post it as a second comment. It leaves out the defects the standard review reports.
         type: boolean
         default: true
       skip-renovate:
@@ -66,6 +66,7 @@ jobs:
       cancel-in-progress: true
     outputs:
       verdict: ${{ steps.review.outputs.verdict }}
+      highest-severity: ${{ steps.review.outputs.highest-severity }}
     steps:
       - id: review
         uses: ianchov/unreal-agent-pr-review-action@v1
@@ -82,9 +83,10 @@ jobs:
 
   adversarial:
     # Runs after the standard review and gets it as prior-review, so it reports only what that review missed.
-    # It reviews only when the standard verdict is "Ready to merge": with changes still to make, a second
-    # review is not worth its cost. Otherwise skip-reason marks its old comment as not reviewed for this
-    # commit (the runner starts only for that note). A skipped or cancelled standard review skips it.
+    # It reviews only when the standard review gave a verdict and found no P0 or P1 defect: with a serious
+    # defect still to fix, a second review is not worth its cost. P2 and P3 findings do not block it.
+    # Otherwise skip-reason marks its old comment as not reviewed for this commit (the runner starts only
+    # for that note). A skipped or cancelled standard review skips it.
     needs: review
     if: >-
       !cancelled() && inputs.adversarial-review
@@ -100,7 +102,9 @@ jobs:
       cancel-in-progress: true
     steps:
       # The standard job uploads its review as this artifact. Without it, the review runs without prior-review.
-      - if: needs.review.outputs.verdict == 'Ready to merge'
+      - if: >-
+          needs.review.outputs.verdict != ''
+          && !contains(fromJSON('["P0","P1"]'), needs.review.outputs.highest-severity)
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
@@ -120,8 +124,7 @@ jobs:
           review-mode: adversarial
           prior-review: ${{ runner.temp }}/standard-review/review.md
           skip-reason: >-
-            ${{ needs.review.outputs.verdict != 'Ready to merge'
-            && (needs.review.outputs.verdict != ''
-              && format('the standard review asks for changes ({0})', needs.review.outputs.verdict)
-              || 'the standard review gave no verdict')
+            ${{ needs.review.outputs.verdict == '' && 'the standard review gave no verdict'
+            || contains(fromJSON('["P0","P1"]'), needs.review.outputs.highest-severity)
+              && format('the standard review found a {0} defect', needs.review.outputs.highest-severity)
             || '' }}
