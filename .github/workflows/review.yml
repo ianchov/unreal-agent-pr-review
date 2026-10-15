@@ -46,8 +46,8 @@ on:
         description: Key for provider openrouter.
         required: false
 
-# The provider both jobs use: the variable, then the input, then the first key the caller passed.
-# With `secrets: inherit` in the caller, adding a key as a repository secret is enough to use it.
+# The provider both jobs use: the variable, then the input, then the first key the caller passed, in
+# a fixed order. A caller that passes all three keys by name only needs to add a key as a secret.
 env:
   REVIEW_PROVIDER: >-
     ${{ vars.UNREAL_AGENT_PROVIDER || inputs.provider
