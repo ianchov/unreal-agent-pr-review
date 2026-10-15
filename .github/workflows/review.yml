@@ -28,7 +28,7 @@ on:
         type: string
         default: ""
       adversarial-review:
-        description: Also run the adversarial review after the standard review and post it as a second comment. It leaves out the defects the standard review reports.
+        description: Also run the adversarial review after the standard review says "Ready to merge", and post it as a second comment. It leaves out the defects the standard review reports.
         type: boolean
         default: true
       skip-renovate:
@@ -64,8 +64,11 @@ jobs:
     concurrency:
       group: unreal-agent-review-${{ github.event.pull_request.number }}-standard
       cancel-in-progress: true
+    outputs:
+      verdict: ${{ steps.review.outputs.verdict }}
     steps:
-      - uses: ianchov/unreal-agent-pr-review-action@v1
+      - id: review
+        uses: ianchov/unreal-agent-pr-review-action@v1
         with:
           provider: ${{ inputs.provider }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -79,7 +82,9 @@ jobs:
 
   adversarial:
     # Runs after the standard review and gets it as prior-review, so it reports only what that review missed.
-    # It also runs after a failed standard review, then without it. A skipped or cancelled one skips it.
+    # It reviews only when the standard verdict is "Ready to merge": with changes still to make, a second
+    # review is not worth its cost. Otherwise skip-reason marks its old comment as not reviewed for this
+    # commit (the runner starts only for that note). A skipped or cancelled standard review skips it.
     needs: review
     if: >-
       !cancelled() && inputs.adversarial-review
@@ -95,7 +100,8 @@ jobs:
       cancel-in-progress: true
     steps:
       # The standard job uploads its review as this artifact. Without it, the review runs without prior-review.
-      - uses: actions/download-artifact@v8
+      - if: needs.review.outputs.verdict == 'Ready to merge'
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: unreal-agent-review-${{ github.event.pull_request.number }}
@@ -113,3 +119,9 @@ jobs:
           diff-exclude: ${{ inputs.diff-exclude }}
           review-mode: adversarial
           prior-review: ${{ runner.temp }}/standard-review/review.md
+          skip-reason: >-
+            ${{ needs.review.outputs.verdict != 'Ready to merge'
+            && (needs.review.outputs.verdict != ''
+              && format('the standard review asks for changes ({0})', needs.review.outputs.verdict)
+              || 'the standard review gave no verdict')
+            || '' }}
