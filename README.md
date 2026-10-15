@@ -18,7 +18,8 @@ This repository gives three ways to add it:
 To write your own job instead, use the action directly. See its README.
 
 All three ways need the repository secret `ANTHROPIC_API_KEY`
-(Settings → Secrets and variables → Actions).
+(Settings → Secrets and variables → Actions). For OpenAI or OpenRouter, see
+[Other model providers](#other-model-providers).
 
 ## Template repository
 
@@ -58,11 +59,31 @@ Optional inputs, set under `with:`:
 | Input | Default | Meaning |
 |---|---|---|
 | `runs-on` | `'"ubuntu-24.04"'` | Runner labels as JSON, for example `'["self-hosted","linux"]'`. |
-| `model` | `claude-sonnet-5-5` | Anthropic model for the agent and the reviewer check. |
+| `provider` | `anthropic` | Model provider: `anthropic`, `openai`, or `openrouter`. |
+| `model` | `claude-sonnet-5-5` for `anthropic` | Model for the agent and the reviewer check, in the provider's names. Required for `openai` and `openrouter`. |
 | `max-review-rounds` | `3` | Most agent and reviewer-check rounds per run. |
 | `review-timeout-minutes` | `40` | Time limit for all review rounds. |
 | `diff-exclude` | empty | Extra paths to leave out of the diff, one git pathspec per line, for example `app/staticfiles`. Common lockfiles are always left out. |
 | `adversarial-review` | `true` | Also run the adversarial review in a second job after the standard review: three hostile personas (Saboteur, New Hire, Security Auditor), each with at least one finding. It reads the standard review and reports only defects that review missed. It posts a second comment, about doubles tokens and runner minutes, and the two jobs run one after the other. Set `false` for the standard review only. |
+| `skip-renovate` | `true` | Skip pull requests opened by Renovate (`renovate[bot]`) before a runner starts. |
+
+### Other model providers
+
+Set `provider` and `model`, and pass the provider's key as a secret. For OpenRouter:
+
+```yaml
+jobs:
+  review:
+    uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
+    with:
+      provider: openrouter
+      model: openai/gpt-5
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+```
+
+For OpenAI, use `provider: openai`, an OpenAI model name such as `gpt-5`, and the secret
+`OPENAI_API_KEY`.
 
 ## Organization workflow template
 
