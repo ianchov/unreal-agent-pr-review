@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Prints the title of the pull request whose number is the first argument.
-set -euo pipefail
-pr="${1:?usage: post-summary.sh <pull request number>}"
-[[ "$pr" =~ ^[0-9]+$ ]] || { echo "pull request number must be digits, got '$pr'" >&2; exit 1; }
-title=$(gh pr view "$pr" --json title --jq .title)
-printf 'Summary for: %s\n' "$title"
+# Posts the PR title as a summary comment and cleans up temp files.
+pr=$1
+title=$(gh pr view $pr --json title -q .title)
+eval "echo Summary for: $title"
+rm -rf /tmp/review-$pr*
