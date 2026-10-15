@@ -62,7 +62,7 @@ Optional inputs, set under `with:`:
 |---|---|---|
 | `runs-on` | `'"ubuntu-24.04"'` | Runner labels as JSON, for example `'["self-hosted","linux"]'`. |
 | `provider` | `anthropic` | Model provider: `anthropic`, `openai`, or `openrouter`. The variable `UNREAL_AGENT_PROVIDER` takes precedence when set. |
-| `model` | `claude-sonnet-5-5` for `anthropic`, `openai/gpt-6-sol` for `openrouter` | Model for the agent and the reviewer check, in the provider's names. Required for `openai`. |
+| `model` | `claude-sonnet-5-5` for `anthropic`, `openai/gpt-6-sol` for `openrouter` | Model for the agent and the reviewer check, in the provider's names. Required for `openai`. The variable `UNREAL_AGENT_MODEL` takes precedence when set. |
 | `max-review-rounds` | `3` | Most agent and reviewer-check rounds per run. |
 | `review-timeout-minutes` | `40` | Time limit for all review rounds. |
 | `diff-exclude` | empty | Extra paths to leave out of the diff, one git pathspec per line, for example `app/staticfiles`. Common lockfiles are always left out. |
@@ -72,10 +72,13 @@ Optional inputs, set under `with:`:
 ### Other model providers
 
 Set the repository or organization variable `UNREAL_AGENT_PROVIDER` (Settings → Secrets and
-variables → Actions → Variables) to `anthropic`, `openai`, or `openrouter`. When it is set, it
-takes precedence over the `provider` input, so you can switch providers without editing the
-workflow. Add the chosen provider's key as a secret and pass it, as the workflow above does for all
-three. A missing key fails the review with the name of the key it needs.
+variables → Actions → Variables) to `anthropic`, `openai`, or `openrouter`, and optionally
+`UNREAL_AGENT_MODEL` to a model name of that provider. When set, they take precedence over the
+`provider` and `model` inputs, so you can switch providers without editing the workflow. Set both
+together: a model name belongs to one provider. `openai` has no default model, so it needs
+`UNREAL_AGENT_MODEL` or the `model` input. Add the chosen provider's key as a secret and pass it,
+as the workflow above does for all three. A missing key fails the review with the name of the key
+it needs.
 
 To fix the provider in the workflow instead, set `provider` under `with:`. For OpenRouter, the model
 defaults to `openai/gpt-6-sol`:
@@ -90,8 +93,8 @@ jobs:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 ```
 
-For OpenAI, also set `model` under `with:` to an OpenAI model name such as `gpt-5`. There is no
-variable for the model. Pass the secret `OPENAI_API_KEY`.
+For OpenAI, also set `model` (or `UNREAL_AGENT_MODEL`) to an OpenAI model name such as `gpt-6-sol`,
+and pass the secret `OPENAI_API_KEY`.
 
 ## Organization workflow template
 
