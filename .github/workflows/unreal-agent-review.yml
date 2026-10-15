@@ -12,5 +12,6 @@ jobs:
     uses: ./.github/workflows/review.yml
     with:
       provider: openrouter
+      diff-exclude: .github/workflows
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
