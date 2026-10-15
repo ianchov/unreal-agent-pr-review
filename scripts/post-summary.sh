@@ -5,3 +5,4 @@ pr="${1:?usage: post-summary.sh <pull request number>}"
 [[ "$pr" =~ ^[0-9]+$ ]] || { echo "pull request number must be digits, got '$pr'" >&2; exit 1; }
 title=$(gh pr view "$pr" --json title --jq .title)
 printf 'Summary for: %s\n' "$title"
+# Usage: post-summary.sh <pull request number>
