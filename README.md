@@ -60,7 +60,7 @@ Optional inputs, set under `with:`:
 |---|---|---|
 | `runs-on` | `'"ubuntu-24.04"'` | Runner labels as JSON, for example `'["self-hosted","linux"]'`. |
 | `provider` | `anthropic` | Model provider: `anthropic`, `openai`, or `openrouter`. |
-| `model` | `claude-sonnet-5-5` for `anthropic` | Model for the agent and the reviewer check, in the provider's names. Required for `openai` and `openrouter`. |
+| `model` | `claude-sonnet-5-5` for `anthropic`, `openai/gpt-6-sol` for `openrouter` | Model for the agent and the reviewer check, in the provider's names. Required for `openai`. |
 | `max-review-rounds` | `3` | Most agent and reviewer-check rounds per run. |
 | `review-timeout-minutes` | `40` | Time limit for all review rounds. |
 | `diff-exclude` | empty | Extra paths to leave out of the diff, one git pathspec per line, for example `app/staticfiles`. Common lockfiles are always left out. |
@@ -69,7 +69,8 @@ Optional inputs, set under `with:`:
 
 ### Other model providers
 
-Set `provider` and `model`, and pass the provider's key as a secret. For OpenRouter:
+Set `provider`, and pass the provider's key as a secret. For OpenRouter, the model defaults to
+`openai/gpt-6-sol`:
 
 ```yaml
 jobs:
@@ -77,13 +78,12 @@ jobs:
     uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
     with:
       provider: openrouter
-      model: openai/gpt-5
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 ```
 
-For OpenAI, use `provider: openai`, an OpenAI model name such as `gpt-5`, and the secret
-`OPENAI_API_KEY`.
+For OpenAI, use `provider: openai`, set `model` to an OpenAI model name such as `gpt-5`, and pass
+the secret `OPENAI_API_KEY`.
 
 ## Organization workflow template
 

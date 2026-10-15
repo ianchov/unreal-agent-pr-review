@@ -12,7 +12,7 @@ on:
         type: string
         default: anthropic
       model:
-        description: Model for the agent and the reviewer check. Required for openai and openrouter; anthropic defaults to claude-sonnet-5-5.
+        description: Model for the agent and the reviewer check. Defaults to claude-sonnet-5-5 for anthropic and openai/gpt-6-sol for openrouter; required for openai.
         type: string
         default: ""
       max-review-rounds:
