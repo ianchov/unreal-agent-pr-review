@@ -18,8 +18,8 @@ This repository gives three ways to add it:
 To write your own job instead, use the action directly. See its README.
 
 All three ways need one provider key as a repository secret (Settings → Secrets and variables →
-Actions): `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`. The workflow passes every
-secret with `secrets: inherit` and uses the first key that exists, in that order. See
+Actions): `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`. The workflow passes all
+three by name and uses the first key that exists, in that order. See
 [Other model providers](#other-model-providers) to choose a provider or model.
 
 ## Template repository
@@ -49,7 +49,10 @@ permissions:
 jobs:
   review:
     uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
-    secrets: inherit
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
 The caller must grant `contents: read` and `pull-requests: write`. A called workflow cannot get
@@ -78,11 +81,13 @@ The provider is chosen in this order:
 3. The first provider key the workflow receives: `ANTHROPIC_API_KEY`, then `OPENROUTER_API_KEY`,
    then `OPENAI_API_KEY`.
 
-With `secrets: inherit`, as in the workflow above, adding a key as a repository secret is enough;
-no workflow edit is needed. GitHub documents `secrets: inherit` for repositories in one
-organization or enterprise; it also worked between repositories of one personal account. If you
-pass secrets by name instead, pass the key of the provider you use. A missing key fails the review
-with the name of the key it needs.
+The workflow above passes all three keys by name, and a key that does not exist arrives empty. So
+adding a key as a repository secret is enough; no workflow edit is needed. The order is fixed, so
+a repository with several keys always uses the same provider until you set the variable or input.
+
+Do not use `secrets: inherit`. It sends every repository secret to the external reusable
+workflow, while the review needs only the provider keys. A missing key fails the review with the
+name of the key it needs.
 
 The model comes from the variable `UNREAL_AGENT_MODEL`, then the `model` input, then the
 provider's default: `claude-sonnet-5-5` for `anthropic` and `openai/gpt-6-sol` for `openrouter`.
@@ -96,7 +101,8 @@ jobs:
     with:
       provider: openrouter
       model: openai/gpt-6-sol
-    secrets: inherit
+    secrets:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 ```
 
 ## Organization workflow template

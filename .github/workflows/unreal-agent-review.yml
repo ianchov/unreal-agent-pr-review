@@ -10,6 +10,10 @@ permissions:
 jobs:
   review:
     uses: ianchov/unreal-agent-pr-review/.github/workflows/review.yml@v1
-    # Every secret of the repository reaches the review. The review uses the key of the provider that
+    # The three provider keys by name, not `secrets: inherit`, so no other secret leaves this
+    # repository. A key that does not exist arrives empty. The review uses the provider that
     # UNREAL_AGENT_PROVIDER or the provider input names, or else the first key that exists.
-    secrets: inherit
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
