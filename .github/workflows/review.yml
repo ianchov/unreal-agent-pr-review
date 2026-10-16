@@ -104,6 +104,16 @@ jobs:
           max-review-rounds: ${{ inputs.max-review-rounds }}
           review-timeout-minutes: ${{ inputs.review-timeout-minutes }}
           diff-exclude: ${{ inputs.diff-exclude }}
+      # Fails the check when the standard review asks for changes. Its outputs still reach the
+      # adversarial job, which runs after a failed standard job too.
+      - if: >-
+          steps.review.outputs.verdict == 'Merge after fixes'
+          || steps.review.outputs.verdict == 'Needs rework'
+        env:
+          VERDICT: ${{ steps.review.outputs.verdict }}
+        run: |
+          echo "::error::Standard review verdict: $VERDICT"
+          exit 1
 
   adversarial:
     # Runs after the standard review and gets it as prior-review, so it reports only what that review missed.

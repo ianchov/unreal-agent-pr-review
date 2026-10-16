@@ -2,7 +2,8 @@
 
 Workflows that review pull requests with [Unreal Agent](https://github.com/unreallabsai/unreal-agent).
 Each pull request gets a standard review. When it finds no P0 or P1 defect, an adversarial review
-follows and leaves out the defects the standard review reports. The review logic, security model, and defaults
+follows and leaves out the defects the standard review reports. Each review's check fails when its
+verdict is "Merge after fixes" or "Needs rework". The review logic, security model, and defaults
 live in the action
 [ianchov/unreal-agent-pr-review-action](https://github.com/ianchov/unreal-agent-pr-review-action),
 also on [GitHub Marketplace](https://github.com/marketplace/actions/unreal-agent-pr-review).
@@ -68,7 +69,7 @@ Optional inputs, set under `with:`:
 | `max-review-rounds` | `3` | Most agent and reviewer-check rounds per run. |
 | `review-timeout-minutes` | `40` | Time limit for all review rounds. |
 | `diff-exclude` | empty | Extra paths to leave out of the diff, one git pathspec per line, for example `app/staticfiles`. Common lockfiles are always left out. |
-| `adversarial-review` | `true` | Also run the adversarial review in a second job, only when the standard review found no P0 or P1 defect: three hostile personas (Saboteur, New Hire, Security Auditor), each with at least one finding. It reads the standard review and reports only defects that review missed, and posts a second comment. Its check fails when its verdict is "Merge after fixes" or "Needs rework". After a P0 or P1 finding, its comment says "not run for commit …" with the reason, and keeps the last adversarial review collapsed. Set `false` for the standard review only. |
+| `adversarial-review` | `true` | Also run the adversarial review in a second job, only when the standard review found no P0 or P1 defect: three hostile personas (Saboteur, New Hire, Security Auditor), each with at least one finding. It reads the standard review and reports only defects that review missed, and posts a second comment. After a P0 or P1 finding, its comment says "not run for commit …" with the reason, and keeps the last adversarial review collapsed. Set `false` for the standard review only. |
 | `skip-renovate` | `true` | Skip pull requests opened by Renovate (`renovate[bot]`) before a runner starts. |
 
 ### Other model providers
