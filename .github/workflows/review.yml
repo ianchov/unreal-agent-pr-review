@@ -116,7 +116,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           VERDICT: ${{ steps.review.outputs.verdict }}
         run: |
-          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx review-accepted; then
+          # A failed label lookup fails the step with gh's error (bash -e), not as a missing label.
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+          if grep -qix review-accepted <<< "$labels"; then
             echo "::notice::Standard review verdict: $VERDICT, accepted by the label review-accepted."
             exit 0
           fi
@@ -181,7 +183,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           VERDICT: ${{ steps.review.outputs.verdict }}
         run: |
-          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx review-accepted; then
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+          if grep -qix review-accepted <<< "$labels"; then
             echo "::notice::Adversarial review verdict: $VERDICT, accepted by the label review-accepted."
             exit 0
           fi
