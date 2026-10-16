@@ -4,7 +4,7 @@ Workflows that review pull requests with [Unreal Agent](https://github.com/unrea
 Each pull request gets a standard review. When it finds no P0 or P1 defect, an adversarial review
 follows and leaves out the defects the standard review reports. Each review's check fails when its
 verdict is "Merge after fixes" or "Needs rework". When a review is wrong, add the label
-`review-accepted` to the pull request and re-run the failed job: the check then passes with a
+`review-accepted` (create it once per repository) to the pull request and re-run the failed job: the check then passes with a
 notice. Re-running starts a new review. The label stays for later commits too, so remove it once
 the pull request no longer needs it. The review logic, security model, and defaults
 live in the action
