@@ -124,6 +124,17 @@ jobs:
           fi
           echo "::error::Standard review verdict: $VERDICT. Fix the findings, or add the label review-accepted and re-run this job."
           exit 1
+      # The label accepts one run. Without an adversarial job, this job removes it.
+      - if: always() && !inputs.adversarial-review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+          name=$(grep -ix review-accepted <<< "$labels" || true)
+          [ -n "$name" ] || exit 0
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/$name" > /dev/null
+          echo "::notice::Removed the label $name. It accepts one review run; add it again to accept a later one."
 
   adversarial:
     # Runs after the standard review and gets it as prior-review, so it reports only what that review missed.
@@ -190,3 +201,14 @@ jobs:
           fi
           echo "::error::Adversarial review verdict: $VERDICT. Fix the findings, or add the label review-accepted and re-run this job."
           exit 1
+      # The label accepts one run, so the last job removes it, also after a skipped or failed review.
+      - if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+          name=$(grep -ix review-accepted <<< "$labels" || true)
+          [ -n "$name" ] || exit 0
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/$name" > /dev/null
+          echo "::notice::Removed the label $name. It accepts one review run; add it again to accept a later one."
