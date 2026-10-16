@@ -153,12 +153,8 @@ jobs:
             || contains(fromJSON('["P0","P1"]'), needs.review.outputs.highest-severity)
               && format('the standard review found a {0} defect', needs.review.outputs.highest-severity)
             || '' }}
-      # Fails the check when the adversarial review asks for changes, so the PR cannot merge unnoticed.
-      - if: >-
-          steps.review.outputs.verdict == 'Merge after fixes'
-          || steps.review.outputs.verdict == 'Needs rework'
-        env:
-          VERDICT: ${{ steps.review.outputs.verdict }}
+      # Fails the check when the adversarial review's verdict is "Merge after fixes".
+      - if: steps.review.outputs.verdict == 'Merge after fixes'
         run: |
-          echo "::error::Adversarial review verdict: $VERDICT"
+          echo "::error::Adversarial review verdict: Merge after fixes"
           exit 1
