@@ -104,15 +104,23 @@ jobs:
           max-review-rounds: ${{ inputs.max-review-rounds }}
           review-timeout-minutes: ${{ inputs.review-timeout-minutes }}
           diff-exclude: ${{ inputs.diff-exclude }}
-      # Fails the check when the standard review asks for changes. Its outputs still reach the
-      # adversarial job, which runs after a failed standard job too.
+      # Fails the check when the standard review asks for changes, unless the PR has the label
+      # review-accepted: a person with triage access accepts the review as wrong, then re-runs
+      # the job. The labels are read live, because a re-run keeps the original event's labels.
+      # The outputs still reach the adversarial job, which runs after a failed standard job too.
       - if: >-
           steps.review.outputs.verdict == 'Merge after fixes'
           || steps.review.outputs.verdict == 'Needs rework'
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VERDICT: ${{ steps.review.outputs.verdict }}
         run: |
-          echo "::error::Standard review verdict: $VERDICT"
+          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx review-accepted; then
+            echo "::notice::Standard review verdict: $VERDICT, accepted by the label review-accepted."
+            exit 0
+          fi
+          echo "::error::Standard review verdict: $VERDICT. Fix the findings, or add the label review-accepted and re-run this job."
           exit 1
 
   adversarial:
@@ -163,12 +171,19 @@ jobs:
             || contains(fromJSON('["P0","P1"]'), needs.review.outputs.highest-severity)
               && format('the standard review found a {0} defect', needs.review.outputs.highest-severity)
             || '' }}
-      # Fails the check when the adversarial review asks for changes, so the PR cannot merge unnoticed.
+      # Fails the check when the adversarial review asks for changes, unless the PR has the label
+      # review-accepted (see the standard job).
       - if: >-
           steps.review.outputs.verdict == 'Merge after fixes'
           || steps.review.outputs.verdict == 'Needs rework'
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VERDICT: ${{ steps.review.outputs.verdict }}
         run: |
-          echo "::error::Adversarial review verdict: $VERDICT"
+          if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx review-accepted; then
+            echo "::notice::Adversarial review verdict: $VERDICT, accepted by the label review-accepted."
+            exit 0
+          fi
+          echo "::error::Adversarial review verdict: $VERDICT. Fix the findings, or add the label review-accepted and re-run this job."
           exit 1
