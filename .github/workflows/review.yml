@@ -86,8 +86,15 @@ jobs:
             || (secrets.ANTHROPIC_API_KEY != '' || secrets.OPENROUTER_API_KEY != '' || secrets.OPENAI_API_KEY != '')
               && 'the first key that exists'
             || 'the default, because no key was passed' }}
+        # Only a known provider gets a notice, so the line holds fixed text. The action rejects an
+        # unknown provider with its own error.
         run: |
-          secret=$(tr '[:lower:]' '[:upper:]' <<< "${REVIEW_PROVIDER}_API_KEY")
+          case "$REVIEW_PROVIDER" in
+            anthropic) secret=ANTHROPIC_API_KEY ;;
+            openai) secret=OPENAI_API_KEY ;;
+            openrouter) secret=OPENROUTER_API_KEY ;;
+            *) exit 0 ;;
+          esac
           echo "::notice::Unreal Agent provider: $REVIEW_PROVIDER, chosen by $PROVIDER_SOURCE. API key: secret $secret."
       # Marks the adversarial comment as waiting for this standard review of the new commit, so it
       # names the newest commit right after a push. The adversarial job replaces the mark later.
