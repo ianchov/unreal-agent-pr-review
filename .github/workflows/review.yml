@@ -86,8 +86,9 @@ jobs:
             || (secrets.ANTHROPIC_API_KEY != '' || secrets.OPENROUTER_API_KEY != '' || secrets.OPENAI_API_KEY != '')
               && 'the first key that exists'
             || 'the default, because no key was passed' }}
-        # The notice holds only fixed text: the provider value can contain any text, also a newline.
-        # The three providers are the ones this workflow has a secret for.
+        # The provider value can contain any text, also a newline, so the notice prints it only after
+        # the case statement matched one of the three providers this workflow has a secret for. For
+        # another value, the action's error names the value.
         run: |
           case "$REVIEW_PROVIDER" in
             anthropic) secret=ANTHROPIC_API_KEY ;;
