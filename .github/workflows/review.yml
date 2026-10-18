@@ -78,6 +78,17 @@ jobs:
       verdict: ${{ steps.review.outputs.verdict }}
       highest-severity: ${{ steps.review.outputs.highest-severity }}
     steps:
+      # Shows what chose the provider and which secret it uses. It names the secret, never its value.
+      - env:
+          PROVIDER_SOURCE: >-
+            ${{ vars.UNREAL_AGENT_PROVIDER != '' && 'the variable UNREAL_AGENT_PROVIDER'
+            || inputs.provider != '' && 'the provider input'
+            || (secrets.ANTHROPIC_API_KEY != '' || secrets.OPENROUTER_API_KEY != '' || secrets.OPENAI_API_KEY != '')
+              && 'the first key that exists'
+            || 'the default, because no key was passed' }}
+        run: |
+          secret=$(tr '[:lower:]' '[:upper:]' <<< "${REVIEW_PROVIDER}_API_KEY")
+          echo "::notice::Unreal Agent provider: $REVIEW_PROVIDER, chosen by $PROVIDER_SOURCE. API key: secret $secret."
       # Marks the adversarial comment as waiting for this standard review of the new commit, so it
       # names the newest commit right after a push. The adversarial job replaces the mark later.
       - if: inputs.adversarial-review
